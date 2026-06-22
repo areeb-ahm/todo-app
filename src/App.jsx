@@ -1,122 +1,97 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { getTodos, saveTodos, generateId } from './utils/storage'
+import { filterTodos, searchTodos, getStats } from './utils/filterUtils'
+import Header from './components/Header'
+import AddTodoForm from './components/AddTodoForm'
+import FilterBar from './components/FilterBar'
+import TodoList from './components/TodoList'
+import StatsBar from './components/StatsBar'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [todos, setTodos] = useState(() => getTodos())
+  const [filter, setFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editingId, setEditingId] = useState(null)
+
+  const searched = searchTodos(todos, searchQuery)
+  const displayed = filterTodos(searched, filter)
+  const stats = getStats(todos)
+
+  function handleAddTodo(text, dueDate, priority) {
+    const trimmed = String(text ?? '').trim()
+    if (trimmed === '') return
+    const newTodo = { id: generateId(), text: trimmed, completed: false, createdAt: new Date().toISOString(), dueDate: dueDate || null, priority: priority || 'medium' }
+    const newTodos = [...todos, newTodo]
+    saveTodos(newTodos)
+    setTodos(newTodos)
+  }
+
+  function handleToggleComplete(id) {
+    const updated = todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    saveTodos(updated)
+    setTodos(updated)
+  }
+
+  function handleDeleteTodo(id) {
+    const remaining = todos.filter((t) => t.id !== id)
+    saveTodos(remaining)
+    setTodos(remaining)
+  }
+
+  function handleEditSave(id, newText) {
+    const trimmed = String(newText ?? '').trim()
+    if (trimmed === '') {
+      handleDeleteTodo(id)
+      return
+    }
+    const updated = todos.map((t) => (t.id === id ? { ...t, text: trimmed } : t))
+    saveTodos(updated)
+    setTodos(updated)
+    setEditingId(null)
+  }
+
+  function handleEditStart(id) {
+    setEditingId(id)
+  }
+
+  function handleEditCancel() {
+    setEditingId(null)
+  }
+
+  function handleClearCompleted() {
+    const remaining = todos.filter((t) => t.completed === false)
+    saveTodos(remaining)
+    setTodos(remaining)
+  }
+
+  function handleReorder(reordered) {
+    saveTodos(reordered)
+    setTodos(reordered)
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <div className="min-h-screen bg-slate-900 py-10 px-4">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <Header />
+        <StatsBar stats={stats} />
+        <AddTodoForm onAdd={handleAddTodo} />
+        <FilterBar filter={filter} onFilterChange={setFilter} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+        <TodoList
+          todos={displayed}
+          editingId={editingId}
+          onToggle={handleToggleComplete}
+          onDelete={handleDeleteTodo}
+          onEditStart={handleEditStart}
+          onEditSave={handleEditSave}
+          onEditCancel={handleEditCancel}
+          onReorder={handleReorder}
+        />
+        {stats.completed > 0 && (
+          <button onClick={handleClearCompleted} className="w-full text-sm text-slate-400 hover:text-red-400 transition-colors py-2 cursor-pointer">
+            Clear {stats.completed} completed task{stats.completed > 1 ? 's' : ''}
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
-
-export default App
